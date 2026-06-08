@@ -52,6 +52,15 @@ class SongInput:
     album: str = ""; year: int = 0; genre: str = ""; duration_seconds: int = 0
 
 @strawberry.input
+class SongUpdateInput:
+    title: Optional[str] = None
+    artist: Optional[str] = None
+    album: Optional[str] = None
+    year: Optional[int] = None
+    genre: Optional[str] = None
+    duration_seconds: Optional[int] = None
+
+@strawberry.input
 class PlaylistInput:
     user_id: int; name: str
 
@@ -158,12 +167,37 @@ class Mutation:
         return True
 
     @strawberry.mutation
+    def update_song(self, id: int, input: SongUpdateInput) -> Optional[Song]:
+        with engine.connect() as c:
+            r = c.execute(text(
+                "UPDATE songs SET "
+                "title=COALESCE(:t,title),"
+                "artist=COALESCE(:a,artist),"
+                "album=COALESCE(:al,album),"
+                "year=COALESCE(:y,year),"
+                "genre=COALESCE(:g,genre),"
+                "duration_seconds=COALESCE(:d,duration_seconds) "
+                f"WHERE id=:id RETURNING {SONG_SEL.split('SELECT ')[1]}"
+            ), {"t": input.title, "a": input.artist, "al": input.album,
+                "y": input.year, "g": input.genre, "d": input.duration_seconds, "id": id}).fetchone()
+            c.commit()
+        return mk_song(r) if r else None
+
+    @strawberry.mutation
     def create_playlist(self, input: PlaylistInput) -> Playlist:
         with engine.connect() as c:
             r = c.execute(text("INSERT INTO playlists(user_id,name) VALUES(:uid,:n) RETURNING id,user_id,name,created_at"),
                           {"uid": input.user_id, "n": input.name}).fetchone()
             c.commit()
         return mk_pl(r)
+
+    @strawberry.mutation
+    def update_playlist(self, id: int, name: str) -> Optional[Playlist]:
+        with engine.connect() as c:
+            r = c.execute(text("UPDATE playlists SET name=:n WHERE id=:id RETURNING id,user_id,name,created_at"),
+                          {"n": name, "id": id}).fetchone()
+            c.commit()
+        return mk_pl(r) if r else None
 
     @strawberry.mutation
     def delete_playlist(self, id: int) -> bool:

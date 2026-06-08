@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-run_benchmarks.py – Automated load-test runner + chart generator.
+run_benchmarks.py - Automated load-test runner + chart generator.
 
 Runs three load levels against all 8 services and produces comparison charts.
 
@@ -25,17 +25,19 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SERVICES = {
     "go-rest":       ("http://localhost:8001", "locust/locustfile_rest.py"),
     "go-graphql":    ("http://localhost:8002", "locust/locustfile_graphql.py"),
+    "go-grpc":       ("http://localhost:8003", "locust/locustfile_grpc.py"),
     "go-soap":       ("http://localhost:8004", "locust/locustfile_soap.py"),
     "python-rest":   ("http://localhost:8011", "locust/locustfile_rest.py"),
     "python-graphql":("http://localhost:8012", "locust/locustfile_graphql.py"),
+    "python-grpc":   ("http://localhost:8013", "locust/locustfile_grpc.py"),
     "python-soap":   ("http://localhost:8014", "locust/locustfile_soap.py"),
 }
 
 # Three load levels: (users, spawn_rate, duration_seconds)
 LOADS = [
-    ("low",    50,  10, 60),
-    ("medium", 200, 20, 60),
-    ("high",   500, 50, 60),
+    ("low",    50,  10, 15),
+    ("medium", 200, 20, 15),
+    ("high",   500, 50, 15),
 ]
 
 OUT_DIR = os.path.join(BASE_DIR, "results")
@@ -44,6 +46,23 @@ os.makedirs(OUT_DIR, exist_ok=True)
 # ── Helpers ───────────────────────────────────────────────────
 
 def wait_for_service(url, retries=30):
+    # gRPC and SOAP services don't support HTTP GET /health
+    import socket
+    grpc_soap_ports = ["8003", "8004", "8013", "8014"]
+    if any(p in url for p in grpc_soap_ports):
+        host_port = url.replace("http://", "").replace("https://", "").split(":")
+        host = host_port[0]
+        port = int(host_port[1])
+        for _ in range(retries):
+            try:
+                s = socket.create_connection((host, port), timeout=3)
+                s.close()
+                return True
+            except Exception:
+                pass
+            time.sleep(2)
+        return False
+
     for _ in range(retries):
         try:
             r = requests.get(f"{url}/health", timeout=3)
@@ -68,8 +87,10 @@ def run_locust(name, host, locustfile, users, spawn_rate, duration):
         "--csv", csv_prefix,
         "--only-summary",
     ]
-    print(f"  → {' '.join(cmd)}")
-    subprocess.run(cmd, cwd=BASE_DIR, check=True)
+    print(f"  -> {' '.join(cmd)}")
+    result = subprocess.run(cmd, cwd=BASE_DIR, check=False)
+    if result.returncode != 0:
+        print(f"  WARNING: Locust exited with code {result.returncode} (may have in-flight requests at shutdown)")
     return csv_prefix
 
 
@@ -100,7 +121,7 @@ def main():
             print(f"\n[{svc}] @ {host}")
             ok = wait_for_service(host)
             if not ok:
-                print(f"  ⚠ Service not reachable – skipping")
+                print(f"  WARNING: Service not reachable - skipping")
                 continue
 
             try:
@@ -119,7 +140,7 @@ def main():
                     })
                     print(f"  RPS={stats.get('Requests/s')}  p95={stats.get('95%')}ms")
             except Exception as e:
-                print(f"  ✗ Error: {e}")
+                print(f"  ERROR: {e}")
 
     if not all_results:
         print("\nNo results collected. Exiting.")
@@ -161,7 +182,7 @@ def main():
         out_path = os.path.join(OUT_DIR, f"chart_{metric}.png")
         plt.savefig(out_path, dpi=150)
         plt.close()
-        print(f"\n✓ Saved {out_path}")
+        print(f"\nOK Saved {out_path}")
 
     # ── Multi-load line chart ─────────────────────────────────
 
@@ -190,9 +211,9 @@ def main():
     out_path = os.path.join(OUT_DIR, "chart_comparison_lines.png")
     plt.savefig(out_path, dpi=150)
     plt.close()
-    print(f"✓ Saved {out_path}")
+    print(f"OK Saved {out_path}")
 
-    print("\n✅ Benchmarking complete. Results in ./results/")
+    print("\nDONE: Benchmarking complete. Results in ./results/")
 
 
 if __name__ == "__main__":

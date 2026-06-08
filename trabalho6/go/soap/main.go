@@ -91,28 +91,39 @@ func extractOp(content string) string {
 	return name
 }
 
-func getIntField(content, field string) int {
-	open := "<" + field + ">"
-	close := "</" + field + ">"
-	i := strings.Index(content, open)
-	j := strings.Index(content, close)
-	if i < 0 || j < 0 {
-		return 0
-	}
-	var v int
-	fmt.Sscanf(content[i+len(open):j], "%d", &v)
-	return v
-}
-
 func getStrField(content, field string) string {
-	open := "<" + field + ">"
-	close := "</" + field + ">"
-	i := strings.Index(content, open)
-	j := strings.Index(content, close)
-	if i < 0 || j < 0 {
+	idx := strings.Index(content, field)
+	if idx < 1 {
 		return ""
 	}
-	return content[i+len(open) : j]
+	if content[idx-1] != '<' && content[idx-1] != ':' {
+		return ""
+	}
+	openTagEnd := strings.Index(content[idx:], ">")
+	if openTagEnd < 0 {
+		return ""
+	}
+	startPos := idx + openTagEnd + 1
+
+	closeIdx := strings.Index(content[startPos:], "/"+field+">")
+	if closeIdx >= 0 {
+		return content[startPos : startPos+closeIdx]
+	}
+	closeIdx2 := strings.Index(content[startPos:], ":"+field+">")
+	if closeIdx2 >= 0 {
+		openClose := strings.LastIndex(content[startPos:startPos+closeIdx2], "</")
+		if openClose >= 0 {
+			return content[startPos : startPos+openClose]
+		}
+	}
+	return ""
+}
+
+func getIntField(content, field string) int {
+	s := getStrField(content, field)
+	var v int
+	fmt.Sscanf(s, "%d", &v)
+	return v
 }
 
 // ── Handlers ──────────────────────────────────────────────────
@@ -248,6 +259,34 @@ func deleteSong(content string) string {
 	return wrap("<DeleteSongResponse><ok>true</ok></DeleteSongResponse>")
 }
 
+func updateSong(content string) string {
+	id := getIntField(content, "id")
+	title := getStrField(content, "title")
+	artist := getStrField(content, "artist")
+	album := getStrField(content, "album")
+	year := getIntField(content, "year")
+	genre := getStrField(content, "genre")
+	dur := getIntField(content, "duration_seconds")
+	var s XMLSong
+	var t time.Time
+	err := db.QueryRow(`UPDATE songs SET 
+		title=COALESCE(NULLIF($1,''),title),
+		artist=COALESCE(NULLIF($2,''),artist),
+		album=COALESCE(NULLIF($3,''),album),
+		year=CASE WHEN $4 > 0 THEN $4 ELSE year END,
+		genre=COALESCE(NULLIF($5,''),genre),
+		duration_seconds=CASE WHEN $6 > 0 THEN $6 ELSE duration_seconds END 
+		WHERE id=$7 RETURNING `+songCols,
+		title, artist, album, year, genre, dur, id).
+		Scan(&s.ID, &s.Title, &s.Artist, &s.Album, &s.Year, &s.Genre, &s.DurationSeconds, &t)
+	if err != nil {
+		return fault(err.Error())
+	}
+	s.CreatedAt = fmtTime(t)
+	b, _ := xml.Marshal(s)
+	return wrap("<UpdateSongResponse>" + string(b) + "</UpdateSongResponse>")
+}
+
 func listPlaylists() string {
 	rows, err := db.Query(`SELECT id,user_id,name,created_at FROM playlists ORDER BY id`)
 	if err != nil {
@@ -324,6 +363,21 @@ func deletePlaylist(content string) string {
 	return wrap("<DeletePlaylistResponse><ok>true</ok></DeletePlaylistResponse>")
 }
 
+func updatePlaylist(content string) string {
+	id := getIntField(content, "id")
+	name := getStrField(content, "name")
+	var p XMLPlaylist
+	var t time.Time
+	err := db.QueryRow(`UPDATE playlists SET name=$1 WHERE id=$2 RETURNING id,user_id,name,created_at`,
+		name, id).Scan(&p.ID, &p.UserID, &p.Name, &t)
+	if err != nil {
+		return fault(err.Error())
+	}
+	p.CreatedAt = fmtTime(t)
+	b, _ := xml.Marshal(p)
+	return wrap("<UpdatePlaylistResponse>" + string(b) + "</UpdatePlaylistResponse>")
+}
+
 func getPlaylistSongs(content string) string {
 	pid := getIntField(content, "playlist_id")
 	rows, err := db.Query(`SELECT s.`+songCols+` FROM songs s JOIN playlist_songs ps ON s.id=ps.song_id WHERE ps.playlist_id=$1 ORDER BY s.id`, pid)
@@ -394,6 +448,8 @@ func soapHandler(w http.ResponseWriter, r *http.Request) {
 		resp = getSong(content)
 	case "CreateSong":
 		resp = createSong(content)
+	case "UpdateSong":
+		resp = updateSong(content)
 	case "DeleteSong":
 		resp = deleteSong(content)
 	case "ListPlaylists":
@@ -404,6 +460,8 @@ func soapHandler(w http.ResponseWriter, r *http.Request) {
 		resp = listPlaylistsByUser(content)
 	case "CreatePlaylist":
 		resp = createPlaylist(content)
+	case "UpdatePlaylist":
+		resp = updatePlaylist(content)
 	case "DeletePlaylist":
 		resp = deletePlaylist(content)
 	case "GetPlaylistSongs":

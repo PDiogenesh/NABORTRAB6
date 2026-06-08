@@ -320,6 +320,44 @@ func buildSchema() {
 					return true, nil
 				},
 			},
+			"update_song": &graphql.Field{
+				Type: songType,
+				Args: graphql.FieldConfigArgument{
+					"id":               &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.Int)},
+					"title":            &graphql.ArgumentConfig{Type: graphql.String},
+					"artist":           &graphql.ArgumentConfig{Type: graphql.String},
+					"album":            &graphql.ArgumentConfig{Type: graphql.String},
+					"year":             &graphql.ArgumentConfig{Type: graphql.Int},
+					"genre":            &graphql.ArgumentConfig{Type: graphql.String},
+					"duration_seconds": &graphql.ArgumentConfig{Type: graphql.Int},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id := p.Args["id"].(int)
+					title, _ := p.Args["title"].(string)
+					artist, _ := p.Args["artist"].(string)
+					album, _ := p.Args["album"].(string)
+					year, _ := p.Args["year"].(int)
+					genre, _ := p.Args["genre"].(string)
+					dur, _ := p.Args["duration_seconds"].(int)
+					var sid, yr, d int
+					var ti, ar, al, g string
+					var t time.Time
+					err := db.QueryRow(`UPDATE songs SET 
+						title=COALESCE(NULLIF($1,''),title),
+						artist=COALESCE(NULLIF($2,''),artist),
+						album=COALESCE(NULLIF($3,''),album),
+						year=CASE WHEN $4 > 0 THEN $4 ELSE year END,
+						genre=COALESCE(NULLIF($5,''),genre),
+						duration_seconds=CASE WHEN $6 > 0 THEN $6 ELSE duration_seconds END 
+						WHERE id=$7 RETURNING `+songCols,
+						title, artist, album, year, genre, dur, id).
+						Scan(&sid, &ti, &ar, &al, &yr, &g, &d, &t)
+					if err != nil {
+						return nil, err
+					}
+					return rowToSong(sid, ti, ar, al, yr, g, d, t), nil
+				},
+			},
 			// Playlist mutations
 			"create_playlist": &graphql.Field{
 				Type: playlistType,
@@ -337,6 +375,26 @@ func buildSchema() {
 						return nil, err
 					}
 					return rowToPlaylist(id, uid, name, t), nil
+				},
+			},
+			"update_playlist": &graphql.Field{
+				Type: playlistType,
+				Args: graphql.FieldConfigArgument{
+					"id":   &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.Int)},
+					"name": &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.String)},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id := p.Args["id"].(int)
+					name := p.Args["name"].(string)
+					var pid, uid int
+					var n string
+					var t time.Time
+					err := db.QueryRow(`UPDATE playlists SET name=$1 WHERE id=$2 RETURNING id,user_id,name,created_at`,
+						name, id).Scan(&pid, &uid, &n, &t)
+					if err != nil {
+						return nil, err
+					}
+					return rowToPlaylist(pid, uid, n, t), nil
 				},
 			},
 			"delete_playlist": &graphql.Field{

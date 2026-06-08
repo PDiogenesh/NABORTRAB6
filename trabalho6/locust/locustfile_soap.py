@@ -9,9 +9,9 @@ from locust import HttpUser, task, between
 def soap_body(operation, inner_xml):
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
-        '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">'
+        '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="http://music.example.com/soap">'
         '<soap:Body>'
-        f'<{operation}>{inner_xml}</{operation}>'
+        f'<tns:{operation}>{inner_xml}</tns:{operation}>'
         '</soap:Body>'
         '</soap:Envelope>'
     )
@@ -28,7 +28,7 @@ class MusicSOAPUser(HttpUser):
     @task(5)
     def get_song(self):
         sid = random.randint(1, 500)
-        self.post("GetSong", f"<id>{sid}</id>", name="soap:GetSong")
+        self.post("GetSong", f"<tns:id>{sid}</tns:id>", name="soap:GetSong")
 
     @task(3)
     def list_songs(self):
@@ -37,7 +37,7 @@ class MusicSOAPUser(HttpUser):
     @task(3)
     def get_user(self):
         uid = random.randint(1, 300)
-        self.post("GetUser", f"<id>{uid}</id>", name="soap:GetUser")
+        self.post("GetUser", f"<tns:id>{uid}</tns:id>", name="soap:GetUser")
 
     @task(2)
     def list_users(self):
@@ -46,7 +46,7 @@ class MusicSOAPUser(HttpUser):
     @task(3)
     def get_playlist(self):
         pid = random.randint(1, 100)
-        self.post("GetPlaylist", f"<id>{pid}</id>", name="soap:GetPlaylist")
+        self.post("GetPlaylist", f"<tns:id>{pid}</tns:id>", name="soap:GetPlaylist")
 
     @task(2)
     def list_playlists(self):
@@ -55,4 +55,4 @@ class MusicSOAPUser(HttpUser):
     @task(2)
     def get_playlist_songs(self):
         pid = random.randint(1, 100)
-        self.post("GetPlaylistSongs", f"<playlist_id>{pid}</playlist_id>", name="soap:GetPlaylistSongs")
+        self.post("GetPlaylistSongs", f"<tns:playlist_id>{pid}</tns:playlist_id>", name="soap:GetPlaylistSongs")

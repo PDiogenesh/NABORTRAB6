@@ -123,6 +123,22 @@ class MusicService(ServiceBase):
             c.execute(text("DELETE FROM songs WHERE id=:id"), {"id": id}); c.commit()
         return "ok"
 
+    @rpc(Integer, Unicode, Unicode, Unicode, Integer, Unicode, Integer, _returns=SongModel)
+    def UpdateSong(ctx, id, title, artist, album, year, genre, duration_seconds):
+        with engine.connect() as c:
+            r = c.execute(text(
+                "UPDATE songs SET "
+                "title=COALESCE(NULLIF(:t,''),title),"
+                "artist=COALESCE(NULLIF(:a,''),artist),"
+                "album=COALESCE(NULLIF(:al,''),album),"
+                "year=CASE WHEN :y > 0 THEN :y ELSE year END,"
+                "genre=COALESCE(NULLIF(:g,''),genre),"
+                "duration_seconds=CASE WHEN :d > 0 THEN :d ELSE duration_seconds END "
+                f"WHERE id=:id RETURNING {SONG_SEL.split('SELECT ')[1]}"
+            ), {"t": title, "a": artist, "al": album, "y": year, "g": genre, "d": duration_seconds, "id": id}).fetchone()
+            c.commit()
+        return row_to_song(r) if r else None
+
     @rpc(_returns=Iterable(PlaylistModel))
     def ListPlaylists(ctx):
         with engine.connect() as c:
@@ -154,6 +170,14 @@ class MusicService(ServiceBase):
         with engine.connect() as c:
             c.execute(text("DELETE FROM playlists WHERE id=:id"), {"id": id}); c.commit()
         return "ok"
+
+    @rpc(Integer, Unicode, _returns=PlaylistModel)
+    def UpdatePlaylist(ctx, id, name):
+        with engine.connect() as c:
+            r = c.execute(text("UPDATE playlists SET name=:n WHERE id=:id RETURNING id,user_id,name,created_at"),
+                          {"n": name, "id": id}).fetchone()
+            c.commit()
+        return row_to_pl(r) if r else None
 
     @rpc(Integer, _returns=Iterable(SongModel))
     def GetPlaylistSongs(ctx, playlist_id):

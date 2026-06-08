@@ -1,0 +1,36 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+grpc,GetSong,"<_InactiveRpcError of RPC that terminated with:
+	status = StatusCode.UNKNOWN
+	details = ""pq: sorry, too many clients already""
+	debug_error_string = ""UNKNOWN:pq: sorry, too many clients already""
+>",51,2026-06-08T03:06:09Z,2026-06-08T03:06:16Z
+grpc,GetPlaylist,"<_InactiveRpcError of RPC that terminated with:
+	status = StatusCode.UNKNOWN
+	details = ""pq: sorry, too many clients already""
+	debug_error_string = ""UNKNOWN:pq: sorry, too many clients already""
+>",25,2026-06-08T03:06:09Z,2026-06-08T03:06:16Z
+grpc,ListSongs,"<_InactiveRpcError of RPC that terminated with:
+	status = StatusCode.UNKNOWN
+	details = ""pq: sorry, too many clients already""
+	debug_error_string = ""UNKNOWN:pq: sorry, too many clients already""
+>",29,2026-06-08T03:06:09Z,2026-06-08T03:06:16Z
+grpc,GetPlaylistSongs,"<_InactiveRpcError of RPC that terminated with:
+	status = StatusCode.UNKNOWN
+	details = ""pq: sorry, too many clients already""
+	debug_error_string = ""UNKNOWN:pq: sorry, too many clients already""
+>",24,2026-06-08T03:06:09Z,2026-06-08T03:06:16Z
+grpc,ListPlaylists,"<_InactiveRpcError of RPC that terminated with:
+	status = StatusCode.UNKNOWN
+	details = ""pq: sorry, too many clients already""
+	debug_error_string = ""UNKNOWN:pq: sorry, too many clients already""
+>",23,2026-06-08T03:06:09Z,2026-06-08T03:06:16Z
+grpc,GetUser,"<_InactiveRpcError of RPC that terminated with:
+	status = StatusCode.UNKNOWN
+	details = ""pq: sorry, too many clients already""
+	debug_error_string = ""UNKNOWN:pq: sorry, too many clients already""
+>",27,2026-06-08T03:06:09Z,2026-06-08T03:06:16Z
+grpc,ListUsers,"<_InactiveRpcError of RPC that terminated with:
+	status = StatusCode.UNKNOWN
+	details = ""pq: sorry, too many clients already""
+	debug_error_string = ""UNKNOWN:pq: sorry, too many clients already""
+>",17,2026-06-08T03:06:09Z,2026-06-08T03:06:16Z

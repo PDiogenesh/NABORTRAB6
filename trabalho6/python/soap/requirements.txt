@@ -1,0 +1,4 @@
+spyne==2.14.0
+lxml==4.9.3
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9

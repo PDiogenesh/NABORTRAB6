@@ -1,0 +1,4 @@
+grpcio==1.59.3
+grpcio-tools==1.59.3
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9

@@ -1,0 +1,79 @@
+syntax = "proto3";
+package music;
+option go_package = "grpc-server/musicpb";
+
+// ── Service ──────────────────────────────────────────────────
+service MusicService {
+    // Users
+    rpc ListUsers   (Empty)             returns (UserList);
+    rpc GetUser     (IdRequest)         returns (User);
+    rpc CreateUser  (CreateUserReq)     returns (User);
+    rpc UpdateUser  (UpdateUserReq)     returns (User);
+    rpc DeleteUser  (IdRequest)         returns (Empty);
+
+    // Songs
+    rpc ListSongs   (Empty)             returns (SongList);
+    rpc GetSong     (IdRequest)         returns (Song);
+    rpc CreateSong  (CreateSongReq)     returns (Song);
+    rpc UpdateSong  (UpdateSongReq)     returns (Song);
+    rpc DeleteSong  (IdRequest)         returns (Empty);
+
+    // Playlists
+    rpc ListPlaylists          (Empty)             returns (PlaylistList);
+    rpc GetPlaylist            (IdRequest)         returns (Playlist);
+    rpc ListPlaylistsByUser    (IdRequest)         returns (PlaylistList);
+    rpc CreatePlaylist         (CreatePlaylistReq) returns (Playlist);
+    rpc UpdatePlaylist         (UpdatePlaylistReq) returns (Playlist);
+    rpc DeletePlaylist         (IdRequest)         returns (Empty);
+    rpc GetPlaylistSongs       (IdRequest)         returns (SongList);
+    rpc AddSongToPlaylist      (PlaylistSongReq)   returns (Empty);
+    rpc RemoveSongFromPlaylist (PlaylistSongReq)   returns (Empty);
+}
+
+// ── Common ────────────────────────────────────────────────────
+message Empty     {}
+message IdRequest { int32 id = 1; }
+
+// ── User ──────────────────────────────────────────────────────
+message User {
+    int32  id         = 1;
+    string name       = 2;
+    string email      = 3;
+    string created_at = 4;
+}
+message UserList      { repeated User users = 1; }
+message CreateUserReq { string name = 1; string email = 2; }
+message UpdateUserReq { int32 id = 1; string name = 2; string email = 3; }
+
+// ── Song ──────────────────────────────────────────────────────
+message Song {
+    int32  id               = 1;
+    string title            = 2;
+    string artist           = 3;
+    string album            = 4;
+    int32  year             = 5;
+    string genre            = 6;
+    int32  duration_seconds = 7;
+    string created_at       = 8;
+}
+message SongList      { repeated Song songs = 1; }
+message CreateSongReq {
+    string title = 1; string artist = 2; string album = 3;
+    int32 year   = 4; string genre  = 5; int32 duration_seconds = 6;
+}
+message UpdateSongReq {
+    int32  id    = 1; string title  = 2; string artist = 3; string album = 4;
+    int32  year  = 5; string genre  = 6; int32  duration_seconds = 7;
+}
+
+// ── Playlist ──────────────────────────────────────────────────
+message Playlist {
+    int32  id         = 1;
+    int32  user_id    = 2;
+    string name       = 3;
+    string created_at = 4;
+}
+message PlaylistList      { repeated Playlist playlists = 1; }
+message CreatePlaylistReq { int32 user_id = 1; string name = 2; }
+message UpdatePlaylistReq { int32 id = 1; string name = 2; }
+message PlaylistSongReq   { int32 playlist_id = 1; int32 song_id = 2; }

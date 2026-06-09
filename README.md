@@ -4,6 +4,14 @@
 
 ---
 
+## Integrantes:
+
+Pedro Diógenes - 2315029
+Matheus Vasconcelos - 2315043
+Erich Lima - 2310362
+
+
+
 ## Tecnologias Implementadas
 
 | # | Serviço | Protocolo | Linguagem | Porta | Framework |

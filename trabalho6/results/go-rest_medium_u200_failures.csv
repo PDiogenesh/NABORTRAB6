@@ -1,8 +1,0 @@
-Method,Name,Error,Occurrences,First Seen,Last Seen
-GET,/playlists/[id],HTTPError('500 Server Error: Internal Server Error for url: /playlists/[id]'),9,2026-06-08T03:03:29Z,2026-06-08T03:03:34Z
-GET,/users,HTTPError('500 Server Error: Internal Server Error for url: /users'),7,2026-06-08T03:03:29Z,2026-06-08T03:03:35Z
-GET,/users/[id],HTTPError('500 Server Error: Internal Server Error for url: /users/[id]'),17,2026-06-08T03:03:29Z,2026-06-08T03:03:35Z
-GET,/playlists,HTTPError('500 Server Error: Internal Server Error for url: /playlists'),7,2026-06-08T03:03:29Z,2026-06-08T03:03:35Z
-GET,/songs,HTTPError('500 Server Error: Internal Server Error for url: /songs'),14,2026-06-08T03:03:29Z,2026-06-08T03:03:35Z
-GET,/playlists/[id]/songs,HTTPError('500 Server Error: Internal Server Error for url: /playlists/[id]/songs'),11,2026-06-08T03:03:29Z,2026-06-08T03:03:35Z
-GET,/songs/[id],HTTPError('500 Server Error: Internal Server Error for url: /songs/[id]'),21,2026-06-08T03:03:29Z,2026-06-08T03:03:35Z

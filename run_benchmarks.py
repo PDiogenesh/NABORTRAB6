@@ -359,10 +359,12 @@ def _safe_log10(v):
 
 def generate_tables(df):
     """
-    Produce three pivot CSV tables:
-      table_RPS.csv       – throughput (req/s)
-      table_p95_ms.csv    – 95th-percentile latency in ms
-      table_log10_p95.csv – log10 of p95 (useful to compress the python-soap outlier)
+    Produce pivot CSV tables:
+      table_RPS.csv            – throughput (req/s)
+      table_p95_ms.csv         – 95th-percentile latency in ms
+      table_log10_p95.csv      – log10 of p95 (useful to compress outliers)
+      table_failures.csv       – absolute failure count per service/load
+      table_failure_rate_pct.csv – failure rate as % of total requests
     """
     if df.empty:
         return
@@ -391,6 +393,106 @@ def generate_tables(df):
         out_path = os.path.join(OUT_DIR, f"table_{label}.csv")
         pd.DataFrame(rows).to_csv(out_path, index=False)
         print(f"  Saved {out_path}")
+
+    # ── Failure count table ────────────────────────────────────────────────
+    rows_fail = []
+    for svc in present_svcs:
+        row = {"service": svc}
+        for load in present_loads:
+            sub = df[(df["service"] == svc) & (df["load"] == load)]
+            row[load] = int(sub["failures"].values[0]) if not sub.empty else None
+        rows_fail.append(row)
+    out_path = os.path.join(OUT_DIR, "table_failures.csv")
+    pd.DataFrame(rows_fail).to_csv(out_path, index=False)
+    print(f"  Saved {out_path}")
+
+    # ── Failure rate (%) table ─────────────────────────────────────────────
+    # failure_rate = failures / (rps * duration_s) * 100
+    _dur_map = {label: dur for label, _, _, dur in ALL_LOADS}
+    rows_rate = []
+    for svc in present_svcs:
+        row = {"service": svc}
+        for load in present_loads:
+            sub = df[(df["service"] == svc) & (df["load"] == load)]
+            if sub.empty:
+                row[load] = None
+            else:
+                dur      = _dur_map.get(load, 1)
+                rps_val  = float(sub["rps"].values[0])
+                fail_val = int(sub["failures"].values[0])
+                total    = rps_val * dur
+                row[load] = round(fail_val / total * 100, 2) if total > 0 else 0.0
+        rows_rate.append(row)
+    out_path = os.path.join(OUT_DIR, "table_failure_rate_pct.csv")
+    pd.DataFrame(rows_rate).to_csv(out_path, index=False)
+    print(f"  Saved {out_path}")
+
+# ── Ranking chart ─────────────────────────────────────────────────────────
+
+def _ranking_chart(df, services, load_label, metric, xlabel, title, filename,
+                   higher_is_better=True):
+    """
+    Horizontal bar chart ranking all services for a specific load level.
+    Bars are sorted so the "best" service sits at the top.
+    """
+    sub = df[df["load"] == load_label]
+    if sub.empty or not services:
+        return
+
+    rows = []
+    for svc in services:
+        s = sub[sub["service"] == svc]
+        if not s.empty:
+            rows.append({"service": svc, "value": float(s[metric].values[0])})
+
+    if not rows:
+        return
+
+    plot_df = pd.DataFrame(rows).sort_values(
+        "value", ascending=(not higher_is_better)
+    )
+
+    fig, ax = plt.subplots(figsize=(9, max(4, len(plot_df) * 0.65)))
+
+    colors = [COLORS.get(svc, "#607D8B") for svc in plot_df["service"]]
+    bars = ax.barh(
+        plot_df["service"], plot_df["value"],
+        color=colors, edgecolor="white", linewidth=0.6, height=0.55,
+    )
+
+    # Value labels inside/outside bars
+    for bar, val in zip(bars, plot_df["value"]):
+        label = f"{val:.1f}"
+        x_pos = bar.get_width() * 1.01
+        ax.text(
+            x_pos, bar.get_y() + bar.get_height() / 2,
+            label, va="center", ha="left", fontsize=9, fontweight="bold",
+        )
+
+    # Medal emoji for top 3
+    medals = ["🥇", "🥈", "🥉"]
+    yticks = ax.get_yticks()
+    labels = [t.get_text() for t in ax.get_yticklabels()]
+    new_labels = []
+    ranked = list(plot_df["service"])[::-1] if higher_is_better else list(plot_df["service"])
+    for lbl in labels:
+        rank = ranked.index(lbl) if lbl in ranked else -1
+        prefix = medals[rank] + " " if 0 <= rank < 3 else "    "
+        new_labels.append(prefix + lbl)
+    ax.set_yticklabels(new_labels, fontsize=10)
+
+    ax.set_xlabel(xlabel, fontsize=10)
+    ax.set_title(title, fontsize=13, fontweight="bold", pad=12)
+    ax.grid(axis="x", alpha=0.3)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.set_xlim(0, plot_df["value"].max() * 1.18)
+
+    plt.tight_layout()
+    path = os.path.join(OUT_DIR, filename)
+    plt.savefig(path, dpi=150)
+    plt.close()
+    print(f"  Saved {path}")
 
 # ── Chart generation orchestrator ─────────────────────────────────────────
 
@@ -460,7 +562,51 @@ def generate_charts(df):
             log_scale=True,
         )
 
-    # ── 4. Summary tables ─────────────────────────────────────────────────
+    # ── 4. Ranking charts (best load available: prefer high > medium > low) ─
+    best_load = next(
+        (l for l in ["high", "medium", "low"] if l in present_loads), None
+    )
+    if best_load:
+        print(f"\n── Ranking charts (load = {best_load}) ──────────────────────────────")
+        _ranking_chart(
+            df, present_svcs, best_load,
+            metric="rps",
+            xlabel="Requests / s",
+            title=f"🏆 Throughput Ranking – {best_load.capitalize()} Load ({ALL_LOADS[[l[0] for l in ALL_LOADS].index(best_load)][1]} users)",
+            filename=f"chart_ranking_rps_{best_load}.png",
+            higher_is_better=True,
+        )
+        _ranking_chart(
+            df, present_svcs, best_load,
+            metric="p95",
+            xlabel="p95 Latency (ms)  —  lower is better",
+            title=f"⚡ p95 Latency Ranking – {best_load.capitalize()} Load ({ALL_LOADS[[l[0] for l in ALL_LOADS].index(best_load)][1]} users)",
+            filename=f"chart_ranking_p95_{best_load}.png",
+            higher_is_better=False,
+        )
+
+    # ── 5. Failure-rate bar chart ──────────────────────────────────────────
+    if "failures" in df.columns:
+        _dur_map = {label: dur for label, _, _, dur in ALL_LOADS}
+        df_plot = df.copy()
+        df_plot["fail_pct"] = df_plot.apply(
+            lambda r: (
+                round(r["failures"] / (r["rps"] * _dur_map.get(r["load"], 1)) * 100, 2)
+                if r["rps"] > 0 else 0.0
+            ),
+            axis=1,
+        )
+        print("\n── Failure-rate bar chart ────────────────────────────────────────")
+        _bar_chart(
+            df_plot, present_svcs, present_loads,
+            metric="fail_pct",
+            ylabel="Failure rate (%)",
+            title="Error / Failure Rate per Service × Load Level",
+            filename="chart_failure_rate.png",
+            log_scale=False,
+        )
+
+    # ── 6. Summary tables ─────────────────────────────────────────────────
     print("\n── Summary tables ───────────────────────────────────────────────")
     generate_tables(df)
 

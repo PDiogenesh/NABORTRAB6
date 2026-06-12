@@ -1,0 +1,9 @@
+service,low,medium,high
+go-rest,0.0,0.0,5.82
+go-graphql,0.0,0.0,0.0
+go-grpc,0.0,0.0,4.82
+go-soap,0.0,0.0,0.0
+python-rest,0.0,0.0,0.0
+python-graphql,0.0,0.0,0.0
+python-grpc,0.0,0.0,0.0
+python-soap,0.0,,0.0

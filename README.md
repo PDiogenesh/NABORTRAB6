@@ -78,13 +78,136 @@ curl http://localhost:8001/health   # go-rest      → {"status":"ok"}
 curl http://localhost:8011/health   # python-rest  → {"status":"ok"}
 ```
 
-### 3. Instalar dependências para os testes (apenas uma vez)
+### 3. Como visualizar cada protocolo
+
+Após os containers subirem, veja abaixo como interagir com cada tecnologia:
+
+---
+
+#### 🟢 REST — Portas `8001` (Go) e `8011` (Python)
+
+O REST é o mais fácil de testar. Para **leituras (GET)**, basta abrir a URL no navegador:
+
+| URL | O que retorna |
+|-----|--------------|
+| `http://localhost:8001/songs` | Lista de músicas (Go) |
+| `http://localhost:8001/users` | Lista de usuários (Go) |
+| `http://localhost:8001/playlists` | Lista de playlists (Go) |
+| `http://localhost:8011/songs` | Lista de músicas (Python) |
+
+> 💡 **Dica:** O serviço Python (FastAPI) possui uma **interface interativa** embutida para testar todos os métodos (GET, POST, PUT, DELETE) sem instalar nada extra:
+> - Acesse **http://localhost:8011/docs** no navegador.
+
+Para operações de escrita via linha de comando (curl):
+```bash
+# Criar uma nova música (Go REST)
+curl -X POST http://localhost:8001/songs \
+     -H "Content-Type: application/json" \
+     -d '{"title":"Nova Música","artist":"Artista","album":"Album","year":2024,"genre":"Rock","duration_seconds":200}'
+```
+
+---
+
+#### 🔵 GraphQL — Portas `8002` (Go) e `8012` (Python)
+
+O GraphQL **não** pode ser testado abrindo a URL no navegador como o REST, pois todas as consultas precisam ser enviadas via POST com o corpo da query.
+
+**Python GraphQL (8012) — Interface visual no navegador:**
+
+O serviço Python (Strawberry + FastAPI) possui o **GraphiQL** embutido. Basta acessar:
+- **http://localhost:8012/graphql**
+
+Na interface que abrir, cole a query abaixo e clique em **▶ Play**:
+
+```graphql
+query {
+  songs {
+    id
+    title
+    artist
+    album
+    year
+    genre
+    duration_seconds
+  }
+  users {
+    id
+    name
+    email
+  }
+  playlists {
+    id
+    user_id
+    name
+  }
+}
+```
+
+**Go GraphQL (8002) — Via linha de comando (curl):**
+
+O serviço Go não possui interface visual. Use curl:
+```bash
+curl -X POST http://localhost:8002/graphql \
+     -H "Content-Type: application/json" \
+     -d '{"query":"query { songs { id title artist } }"}'
+```
+
+---
+
+#### 🟠 SOAP — Portas `8004` (Go) e `8014` (Python)
+
+> ⚠️ **SOAP não usa JSON** — as respostas são em formato **XML**. Além disso, não é possível fazer consultas apenas abrindo uma URL no navegador, pois o SOAP exige requisições POST com um "Envelope XML" no corpo.
+
+**Via linha de comando (curl):**
+```bash
+# Listar músicas (Go SOAP)
+curl -X POST http://localhost:8004/soap \
+     -H "Content-Type: text/xml" \
+     -d "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap:Body><ListSongs/></soap:Body></soap:Envelope>"
+
+# Listar músicas (Python SOAP)
+curl -X POST http://localhost:8014/ \
+     -H "Content-Type: text/xml" \
+     -d "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap:Body><ListSongs/></soap:Body></soap:Envelope>"
+```
+
+**Via Postman:**
+1. Crie uma nova requisição **POST** apontando para `http://localhost:8004/soap`
+2. Na aba **Body**, escolha `raw` → `XML`
+3. Cole o envelope XML acima e envie
+
+---
+
+#### 🔴 gRPC — Portas `8003` (Go) e `8013` (Python)
+
+> ⚠️ **gRPC usa protocolo binário (Protobuf) sobre HTTP/2** — completamente incompatível com o navegador padrão.
+
+**Via Postman:**
+1. Crie uma nova requisição do tipo **gRPC**
+2. Informe a URL: `localhost:8003` (Go) ou `localhost:8013` (Python)
+3. Importe o arquivo `music.proto` da raiz do projeto para carregar os métodos disponíveis
+
+**Via grpcurl (linha de comando):**
+```bash
+# Instalar grpcurl (se não tiver)
+# https://github.com/fullstorydev/grpcurl/releases
+
+# Listar métodos disponíveis
+grpcurl -plaintext localhost:8003 list
+
+# Chamar ListSongs
+grpcurl -plaintext -d '{}' localhost:8003 music.MusicService/ListSongs
+```
+
+---
+
+### 4. Instalar dependências para os testes (apenas uma vez)
 
 ```bash
 pip install locust matplotlib pandas requests grpcio grpcio-tools
 ```
 
-### 4. Rodar os testes de carga
+### 5. Rodar os testes de carga
 
 ```bash
 # Tudo (8 serviços × 3 níveis)
@@ -110,7 +233,7 @@ python run_benchmarks.py --charts-only
 
 Os resultados ficam em `results/`.
 
-### 5. Parar tudo
+### 6. Parar tudo
 
 ```bash
 docker compose down
